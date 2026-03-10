@@ -3,10 +3,34 @@ from flask_cors import CORS
 from flask_mail import Mail
 from dotenv import load_dotenv
 import os
+import json
 
 load_dotenv()
 
 mail = Mail()
+
+def init_firebase():
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+        
+        if not firebase_admin._apps:
+            cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
+            if cred_path and os.path.exists(cred_path):
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+                print("[DEBUG] Firebase initialized successfully")
+            else:
+                firebase_json = os.getenv('FIREBASE_SERVICE_ACCOUNT')
+                if firebase_json:
+                    cred_dict = json.loads(firebase_json)
+                    cred = credentials.Certificate(cred_dict)
+                    firebase_admin.initialize_app(cred)
+                    print("[DEBUG] Firebase initialized successfully")
+                else:
+                    print("[WARNING] Firebase credentials not found in environment variables")
+    except Exception as e:
+        print(f"[WARNING] Firebase initialization failed: {e}")
 
 def create_app():
     app = Flask(__name__)
@@ -21,6 +45,8 @@ def create_app():
     
     CORS(app, resources={r"/api/*": {"origins": os.getenv('FRONTEND_URL')}})
     mail.init_app(app)
+    
+    init_firebase()
     
     from app.routes import auth, cards, transactions, subscriptions, analytics, statements, exchange_rates
     

@@ -134,3 +134,63 @@ class User:
             
         finally:
             close_db_connection(conn, cursor)
+
+    @staticmethod
+    def get_user_by_email(email):
+        conn = get_db_connection()
+        if not conn:
+            return None
+        
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute(
+                "SELECT id, email, full_name, is_verified, google_id FROM users WHERE email = %s",
+                (email,)
+            )
+            return cursor.fetchone()
+            
+        except Exception as e:
+            print(f"Error getting user by email: {e}")
+            return None
+            
+        finally:
+            close_db_connection(conn, cursor)
+
+    @staticmethod
+    def create_google_user(email, full_name, google_id):
+        conn = get_db_connection()
+        if not conn:
+            return None
+        
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                return {'error': 'Email already exists'}
+            
+            cursor.execute(
+                """
+                INSERT INTO users (email, full_name, google_id, is_verified)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (email, full_name, google_id, True)
+            )
+            
+            user_id = cursor.lastrowid
+            conn.commit()
+            return {
+                'id': user_id,
+                'email': email,
+                'full_name': full_name,
+                'is_verified': True
+            }
+            
+        except Exception as e:
+            print(f"Error creating Google user: {e}")
+            conn.rollback()
+            return None
+            
+        finally:
+            close_db_connection(conn, cursor)

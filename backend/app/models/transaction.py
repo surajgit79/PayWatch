@@ -22,10 +22,8 @@ class Transaction:
             if not card:
                 return {'error': 'Card not found'}
 
-            if transaction_data['transaction_type'] != 'refund' and float(transaction_data['amount_usd'] > card['current_balance']):
-                return{
-                    'error' : f'Insufficient balance on this card. Card balance: ${card['current_balance']:.2f}. Please load this card or use another card.'
-                }    
+            if transaction_data['transaction_type'] != 'refund' and float(transaction_data['amount_usd']) > card['current_balance']:
+                return {'error': f'Insufficient balance on this card. Card balance: ${card["current_balance"]:.2f}. Please load this card or use another card.'}    
 
 
             exchange_rate = get_latest_exchange_rate()

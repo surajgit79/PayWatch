@@ -18,7 +18,7 @@ def register():
                 return jsonify({'error': f'{field} is required'}), 400
         
         password = data.get('password','')
-        regexPass = regexPass = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+        regexPass = r'^(?=.*[A-Za-z])(?=.*\d)(?=.*[A-Z])(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
         
         if not re.match(regexPass, password):
             print(f"[ERROR] Password does not meet the requirements")
@@ -125,4 +125,58 @@ def get_current_user(user_id):
     except Exception as e:
         print(f"Get user error: {e}")
         return jsonify({'error': 'Failed to get user'}), 500
+
+@bp.route('/google', methods=['POST'])
+def google_auth():
+    try:
+        from app.models.user import User
+        data = request.get_json()
+        
+        if 'id_token' not in data:
+            return jsonify({'error': 'ID token is required'}), 400
+        
+        id_token = data['id_token']
+        
+        try:
+            import firebase_admin
+            from firebase_admin import credentials, auth
+            from flask import current_app
+            
+            if not firebase_admin._apps:
+                return jsonify({'error': 'Firebase not initialized'}), 500
+            
+            decoded_token = auth.verify_id_token(id_token)
+            email = decoded_token.get('email')
+            full_name = decoded_token.get('name', email.split('@')[0])
+            google_id = decoded_token.get('uid')
+            
+            if not email:
+                return jsonify({'error': 'Email not provided by Google'}), 400
+            
+            user = User.get_user_by_email(email)
+            
+            if user and not user.get('google_id'):
+                return jsonify({'error': 'This email is already registered. Please login with your password.'}), 400
+            
+            if not user:
+                result = User.create_google_user(email, full_name, google_id)
+                if not result or 'error' in result:
+                    return jsonify({'error': result.get('error', 'Failed to create user')}), 500
+                user = result
+            
+            token = generate_token(user['id'])
+            
+            return jsonify({
+                'message': 'Google login successful',
+                'token': token,
+                'user': {'id': user['id'], 'email': user['email'], 'full_name': user['full_name'], 'is_verified': True}
+            }), 200
+            
+        except Exception as e:
+            print(f"Google token verification error: {e}")
+            return jsonify({'error': 'Invalid Google token'}), 400
+            
+    except Exception as e:
+        print(f"Google auth error: {e}")
+        return jsonify({'error': 'Google authentication failed'}), 500
     
